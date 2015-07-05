@@ -4,43 +4,47 @@ import threading
 import sys
 import time
 
+class Server():
+	def __init__(self, server, config):
+		self.args = shlex.split(server + " -config " + config)
+		self.running = True
+		
+		
+	def output(self, process):
+		stdout = process.stdout.readline()
+		if len(stdout) > 0:
+			print(stdout[:-2].decode("ascii"))
+	
+	def input(self, process):
+		command = input()
+		if command == "exit" or command == "exit-nosave":
+			self.running = False
+			print("exiting")
+		command += "\r\n"
+		process.stdin.write(command.encode("ascii"))
+		process.stdin.flush()
+	
+	def main(self):
+		server_process = subprocess.Popen(self.args, bufsize=0, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		
+		input_thread = threading.Thread(target=self.input, args=(server_process,))
+		input_thread.daemon = True
+		input_thread.start()
+		
+		while self.running:
+			self.output(server_process)
+			#self.input_thread.daemon = True
+			if not input_thread.isAlive():
+				input_thread = threading.Thread(target=self.input, args=(server_process,))
+				input_thread.daemon = True
+				input_thread.start()
+		
+		
+
 server = "\"C:\\Program Files (x86)\\Steam\\steamapps\\common\\terraria\\TerrariaServer.exe\""
-config_flag = "-config"
 config = sys.argv[1]
 
-args = server + " " + config_flag + " " + config
+server_obj = Server(server, config)
+server_obj.main()
 
-args = shlex.split(args)
-print(args)
-server_process = subprocess.Popen(args,bufsize=0, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-def output_loop(process):
-    running = True
-    while running:
-        stdout = process.stdout.readline()
-        if len(stdout) > 0:
-            print(stdout[:-2].decode("ascii"))
-
-def input_loop(process):
-    running = True
-    while running:
-        command = input() + "\r\n"
-        process.stdin.write(command.encode("ascii"))
-        process.stdin.flush()
-        print(process.poll())
-
-def input_test(process):
-    command = "say test" + "\r\n"
-    process.stdin.write(command.encode("ascii"))
-    process.stdin.flush()
-    
-        
-o = threading.Thread(target=output_loop, args=(server_process,))
-i = threading.Thread(target=input_loop, args=(server_process,))
-o.start()
-time.sleep(15)
-print("done sleeping")
-i.start()
-
-#server_process.kill()
 
